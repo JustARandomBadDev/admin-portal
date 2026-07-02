@@ -33,6 +33,15 @@ func TestEnsureZywallGuestClassReply(t *testing.T) {
 	if !strings.Contains(exec.sql, "attribute = 'Class'") {
 		t.Fatalf("SQL does not check Class attribute: %s", exec.sql)
 	}
+	if !strings.Contains(exec.sql, "SELECT $1::varchar(64), 'Class', ':='::char(2), $2::varchar(253)") {
+		t.Fatalf("SQL does not insert Class := value: %s", exec.sql)
+	}
+	if !strings.Contains(exec.sql, "value = $2::varchar(253)") {
+		t.Fatalf("SQL does not check Class value: %s", exec.sql)
+	}
+	if !strings.Contains(exec.sql, "SET op = ':='") {
+		t.Fatalf("SQL does not normalize existing Class op: %s", exec.sql)
+	}
 	if !strings.Contains(exec.sql, "WHERE NOT EXISTS") {
 		t.Fatalf("SQL is not idempotent: %s", exec.sql)
 	}

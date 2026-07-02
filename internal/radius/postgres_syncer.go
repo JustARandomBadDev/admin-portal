@@ -75,14 +75,22 @@ VALUES ($1, 'Expiration', ':=', $2)
 
 func (s *PostgresSyncer) ensureZywallGuestClassReply(ctx context.Context, exec radiusExecutor, username string) error {
 	_, err := exec.Exec(ctx, `
+WITH normalized AS (
+    UPDATE radreply
+    SET op = ':='
+    WHERE username = $1::varchar(64)
+      AND attribute = 'Class'
+      AND value = $2::varchar(253)
+      AND op <> ':='
+)
 INSERT INTO radreply (username, attribute, op, value)
-SELECT $1, 'Class', ':=', $2
+SELECT $1::varchar(64), 'Class', ':='::char(2), $2::varchar(253)
 WHERE NOT EXISTS (
     SELECT 1
     FROM radreply
-    WHERE username = $1
+    WHERE username = $1::varchar(64)
       AND attribute = 'Class'
-      AND value = $2
+      AND value = $2::varchar(253)
 )
 `, username, zywallGuestClass)
 	return err
