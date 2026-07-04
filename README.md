@@ -86,6 +86,30 @@ docker pull ghcr.io/justarandombaddev/captive-portal-admin:sha-<commit>
 docker pull ghcr.io/justarandombaddev/captive-portal-admin:vX.Y.Z
 ```
 
+Les migrations SQL admin sont versionnées dans le repo sous :
+
+```text
+migrations/
+```
+
+L'image Docker les copie dans :
+
+```text
+/app/migrations/admin
+```
+
+L'image runtime applicative ne contient pas `psql`. Le Dockerfile expose une
+target `migrations`, basée sur l'image runtime, qui ajoute uniquement
+`postgresql-client` pour exécuter les migrations.
+
+Dans `camping-infra`, le service `admin-migrations` utilise cette target
+`migrations` et applique les fichiers de `/app/migrations/admin` sur la base
+`admin` avec `apply-migrations.sh` et `psql` avant le démarrage du panel. Aucun
+framework de migration supplémentaire n'est utilisé.
+
+L'application Go ne lance pas les migrations au démarrage. Elle suppose que la
+base `admin` a déjà été préparée par l'infra.
+
 ## Variables d'environnement
 
 | Variable              | Description                                 | Défaut  |

@@ -13,7 +13,7 @@ RUN CGO_ENABLED=1 GOOS=linux go build \
     -ldflags="-s -w" \
     -o /out/admin-panel ./cmd/admin-panel
 
-FROM alpine:3.21
+FROM alpine:3.21 AS runtime
 
 RUN apk add --no-cache ca-certificates tzdata \
     && addgroup -S adminpanel \
@@ -21,9 +21,18 @@ RUN apk add --no-cache ca-certificates tzdata \
 
 WORKDIR /app
 COPY --from=build /out/admin-panel /app/admin-panel
+COPY migrations /app/migrations/admin
 
 EXPOSE 8080
 
 USER adminpanel:adminpanel
 
 CMD ["/app/admin-panel"]
+
+FROM runtime AS migrations
+
+USER root
+
+RUN apk add --no-cache postgresql-client
+
+USER adminpanel:adminpanel
