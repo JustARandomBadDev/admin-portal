@@ -28,14 +28,16 @@ type ticketListPageData struct {
 
 type ticketFormPageData struct {
 	viewData
-	Title         string
-	ActiveNav     string
-	Heading       string
-	Description   string
-	Pitches       []pitches.Pitch
-	PitchID       string
-	DurationHours int
-	Error         string
+	Title              string
+	ActiveNav          string
+	Heading            string
+	Description        string
+	Pitches            []pitches.Pitch
+	PitchID            string
+	DurationHours      int
+	CustomDurationDays int
+	UseCustomDuration  bool
+	Error              string
 }
 
 type ticketPrintSelectPageData struct {
@@ -161,13 +163,28 @@ func (r *Router) ticketCreate(w http.ResponseWriter, req *http.Request) {
 	}
 
 	pitchID := req.PostFormValue("pitch_id")
-	durationHours, err := strconv.Atoi(req.PostFormValue("duration_hours"))
-	if err != nil || durationHours <= 0 {
+	durationHours, customDurationDays, useCustomDuration, err := parseTicketDuration(req)
+	if err != nil {
 		r.renderTicketCreateError(w, req, ticketFormPageData{
-			viewData:      r.viewData(req),
-			PitchID:       pitchID,
-			DurationHours: durationHours,
-			Error:         "La durée doit être un nombre d'heures positif.",
+			viewData:           r.viewData(req),
+			PitchID:            pitchID,
+			DurationHours:      durationHours,
+			CustomDurationDays: customDurationDays,
+			UseCustomDuration:  useCustomDuration,
+			Error:              "La durée personnalisée doit être un nombre de jours positif.",
+		}, http.StatusBadRequest)
+		return
+	}
+
+	pitchCode, err := r.pitchCodeForTicket(req, pitchID)
+	if err != nil {
+		r.renderTicketCreateError(w, req, ticketFormPageData{
+			viewData:           r.viewData(req),
+			PitchID:            pitchID,
+			DurationHours:      durationHours,
+			CustomDurationDays: customDurationDays,
+			UseCustomDuration:  useCustomDuration,
+			Error:              "Sélectionnez un emplacement actif.",
 		}, http.StatusBadRequest)
 		return
 	}
@@ -175,6 +192,7 @@ func (r *Router) ticketCreate(w http.ResponseWriter, req *http.Request) {
 	validFrom := time.Now()
 	input := tickets.TicketCreateInput{
 		PitchID:    pitchID,
+		PitchCode:  pitchCode,
 		ValidFrom:  validFrom,
 		ValidUntil: validFrom.Add(time.Duration(durationHours) * time.Hour),
 	}
@@ -186,10 +204,12 @@ func (r *Router) ticketCreate(w http.ResponseWriter, req *http.Request) {
 			status = http.StatusInternalServerError
 		}
 		r.renderTicketCreateError(w, req, ticketFormPageData{
-			viewData:      r.viewData(req),
-			PitchID:       pitchID,
-			DurationHours: durationHours,
-			Error:         message,
+			viewData:           r.viewData(req),
+			PitchID:            pitchID,
+			DurationHours:      durationHours,
+			CustomDurationDays: customDurationDays,
+			UseCustomDuration:  useCustomDuration,
+			Error:              message,
 		}, status)
 		return
 	}
@@ -241,12 +261,48 @@ func (r *Router) renderTicketForm(w http.ResponseWriter, req *http.Request, data
 	if data.Description == "" {
 		data.Description = "Créer un ticket temporaire pour un emplacement."
 	}
-	if data.DurationHours == 0 {
+	if data.DurationHours == 0 && !data.UseCustomDuration {
 		data.DurationHours = 24
 	}
 	data.Pitches = activePitches
 
 	r.render(w, "ticket_new.html", data)
+}
+
+func parseTicketDuration(req *http.Request) (durationHours int, customDurationDays int, useCustomDuration bool, err error) {
+	raw := req.PostFormValue("duration_hours")
+	if raw == "custom" {
+		useCustomDuration = true
+		customDurationDays, err = strconv.Atoi(req.PostFormValue("custom_duration_days"))
+		if err != nil || customDurationDays <= 0 {
+			return 0, customDurationDays, true, errors.New("invalid custom duration")
+		}
+		return customDurationDays * 24, customDurationDays, true, nil
+	}
+
+	durationHours, err = strconv.Atoi(raw)
+	if err != nil || durationHours <= 0 {
+		return durationHours, customDurationDays, false, errors.New("invalid duration")
+	}
+	return durationHours, customDurationDays, false, nil
+}
+
+func (r *Router) pitchCodeForTicket(req *http.Request, pitchID string) (string, error) {
+	pitchID = strings.TrimSpace(pitchID)
+	if pitchID == "" {
+		return "", errors.New("pitch_id is required")
+	}
+
+	activePitches, err := r.pitches.ListActive(req.Context())
+	if err != nil {
+		return "", err
+	}
+	for _, pitch := range activePitches {
+		if pitch.ID == pitchID {
+			return pitch.Code, nil
+		}
+	}
+	return "", errors.New("active pitch not found")
 }
 
 func buildTicketRows(items []tickets.Ticket, allPitches []pitches.Pitch) []ticketRow {
@@ -331,6 +387,8 @@ func ticketCreateError(err error) string {
 	switch {
 	case errors.Is(err, tickets.ErrPitchRequired):
 		return "Selectionnez un emplacement."
+	case errors.Is(err, tickets.ErrPitchCodeRequired):
+		return "Le numéro d'emplacement est requis pour générer l'identifiant."
 	case errors.Is(err, tickets.ErrInvalidTicketDates):
 		return "Les dates de validité sont incohérentes."
 	case errors.Is(err, tickets.ErrDuplicateUsername):

@@ -18,6 +18,7 @@
 
     <label for="duration_hours">Durée</label>
     <select id="duration_hours" name="duration_hours" required>
+      <option value="custom" {{ if .UseCustomDuration }}selected{{ end }}>Durée personnalisée (jours)</option>
       <option value="6" {{ if eq .DurationHours 6 }}selected{{ end }}>6 heures</option>
       <option value="12" {{ if eq .DurationHours 12 }}selected{{ end }}>12 heures</option>
       <option value="24" {{ if eq .DurationHours 24 }}selected{{ end }}>24 heures</option>
@@ -26,11 +27,33 @@
       <option value="168" {{ if eq .DurationHours 168 }}selected{{ end }}>7 jours</option>
     </select>
 
+    <div id="custom-duration-field" {{ if not .UseCustomDuration }}hidden{{ end }}>
+      <label for="custom_duration_days">Durée personnalisée (jours)</label>
+      <input id="custom_duration_days" name="custom_duration_days" type="number" min="1" step="1" value="{{ if .CustomDurationDays }}{{ .CustomDurationDays }}{{ end }}" {{ if not .UseCustomDuration }}disabled{{ end }}>
+    </div>
+
     <div class="toolbar">
       <a class="button secondary" href="/tickets">Annuler</a>
       <button type="submit">Créer</button>
     </div>
   </form>
+  <script>
+    const durationSelect = document.getElementById("duration_hours");
+    const customDurationField = document.getElementById("custom-duration-field");
+    const customDurationInput = document.getElementById("custom_duration_days");
+
+    function updateCustomDurationField() {
+      const useCustomDuration = durationSelect.value === "custom";
+      customDurationField.hidden = !useCustomDuration;
+      customDurationInput.disabled = !useCustomDuration;
+      if (!useCustomDuration) {
+        customDurationInput.value = "";
+      }
+    }
+
+    durationSelect.addEventListener("change", updateCustomDurationField);
+    updateCustomDurationField();
+  </script>
   {{ else }}
   <p>Aucun emplacement actif disponible. Créez ou réactivez un emplacement avant de créer un ticket.</p>
   <div class="toolbar">

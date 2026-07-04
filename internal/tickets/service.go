@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"log/slog"
+	"regexp"
 	"strings"
 	"time"
 
@@ -15,7 +16,12 @@ var (
 	ErrInvalidTicketStatus = errors.New("invalid ticket status")
 	ErrInvalidTicketDates  = errors.New("valid_until must be after valid_from")
 	ErrPitchRequired       = errors.New("pitch_id is required")
+	ErrPitchCodeRequired   = errors.New("pitch code is required to generate username")
 )
+
+const generatedPasswordLength = 7
+
+var pitchNumberExpression = regexp.MustCompile(`\d+`)
 
 type Service struct {
 	repository Repository
@@ -38,6 +44,7 @@ func NewService(repository Repository, syncer ...radius.Syncer) *Service {
 
 func (s *Service) Create(ctx context.Context, input TicketCreateInput) (Ticket, error) {
 	input.PitchID = strings.TrimSpace(input.PitchID)
+	input.PitchCode = strings.TrimSpace(input.PitchCode)
 	input.Username = strings.TrimSpace(input.Username)
 	input.CleartextPassword = strings.TrimSpace(input.CleartextPassword)
 	input.CreatedBy = strings.TrimSpace(input.CreatedBy)
@@ -50,17 +57,20 @@ func (s *Service) Create(ctx context.Context, input TicketCreateInput) (Ticket, 
 	}
 
 	generateUsername := input.Username == ""
+	if generateUsername && pitchNumber(input.PitchCode) == "" {
+		return Ticket{}, ErrPitchCodeRequired
+	}
 	if input.CleartextPassword == "" {
-		password, err := GeneratePassword(14)
+		password, err := GeneratePassword(generatedPasswordLength)
 		if err != nil {
 			return Ticket{}, err
 		}
 		input.CleartextPassword = password
 	}
 
-	for attempt := 0; attempt < 5; attempt++ {
+	for attempt := 0; attempt < 100; attempt++ {
 		if generateUsername {
-			username, err := GenerateUsername(input.ValidFrom)
+			username, err := GenerateUsername(input.PitchCode)
 			if err != nil {
 				return Ticket{}, err
 			}
@@ -189,13 +199,18 @@ func DurationFromDates(validFrom, validUntil time.Time) (time.Duration, error) {
 	return validUntil.Sub(validFrom), nil
 }
 
-func GenerateUsername(now time.Time) (string, error) {
-	suffix, err := randomString("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", 4)
+func GenerateUsername(pitchCode string) (string, error) {
+	number := pitchNumber(pitchCode)
+	if number == "" {
+		return "", ErrPitchCodeRequired
+	}
+
+	suffix, err := randomString("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ", 4)
 	if err != nil {
 		return "", err
 	}
 
-	return "cp-" + now.Format("20060102") + "-" + suffix, nil
+	return "XXX" + number + "-" + suffix, nil
 }
 
 func GeneratePassword(length int) (string, error) {
@@ -214,4 +229,8 @@ func randomString(alphabet string, length int) (string, error) {
 	}
 
 	return string(result), nil
+}
+
+func pitchNumber(code string) string {
+	return strings.Join(pitchNumberExpression.FindAllString(code, -1), "")
 }

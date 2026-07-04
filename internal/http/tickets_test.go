@@ -1,7 +1,9 @@
 package http
 
 import (
+	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -57,5 +59,53 @@ func TestSelectTicketRowsByIDKeepsActiveRowsOrder(t *testing.T) {
 	}
 	if selected[0].ID != "ticket-1" || selected[1].ID != "ticket-3" {
 		t.Fatalf("selected IDs = %q, %q, want ticket-1, ticket-3", selected[0].ID, selected[1].ID)
+	}
+}
+
+func TestParseTicketDurationPreset(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/tickets", strings.NewReader("duration_hours=24"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if err := req.ParseForm(); err != nil {
+		t.Fatalf("ParseForm: %v", err)
+	}
+
+	duration, custom, useCustom, err := parseTicketDuration(req)
+	if err != nil {
+		t.Fatalf("parseTicketDuration() error = %v", err)
+	}
+	if duration != 24 || custom != 0 || useCustom {
+		t.Fatalf("duration/custom/useCustom = %d/%d/%v, want 24/0/false", duration, custom, useCustom)
+	}
+}
+
+func TestParseTicketDurationCustom(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/tickets", strings.NewReader("duration_hours=custom&custom_duration_days=5"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if err := req.ParseForm(); err != nil {
+		t.Fatalf("ParseForm: %v", err)
+	}
+
+	duration, custom, useCustom, err := parseTicketDuration(req)
+	if err != nil {
+		t.Fatalf("parseTicketDuration() error = %v", err)
+	}
+	if duration != 120 || custom != 5 || !useCustom {
+		t.Fatalf("duration/custom/useCustom = %d/%d/%v, want 120/5/true", duration, custom, useCustom)
+	}
+}
+
+func TestParseTicketDurationRejectsInvalidCustom(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/tickets", strings.NewReader("duration_hours=custom&custom_duration_days=0"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if err := req.ParseForm(); err != nil {
+		t.Fatalf("ParseForm: %v", err)
+	}
+
+	_, _, useCustom, err := parseTicketDuration(req)
+	if err == nil {
+		t.Fatal("parseTicketDuration() error = nil, want error")
+	}
+	if !useCustom {
+		t.Fatal("useCustom = false, want true")
 	}
 }

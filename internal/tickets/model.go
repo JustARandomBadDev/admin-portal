@@ -32,6 +32,7 @@ type TicketCreateInput struct {
 	Username          string
 	CleartextPassword string
 	PitchID           string
+	PitchCode         string
 	ValidFrom         time.Time
 	ValidUntil        time.Time
 	CreatedBy         string

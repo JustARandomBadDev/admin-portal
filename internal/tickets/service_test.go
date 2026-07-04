@@ -3,6 +3,7 @@ package tickets
 import (
 	"context"
 	"errors"
+	"regexp"
 	"testing"
 	"time"
 
@@ -77,6 +78,7 @@ func TestCreateTicketGeneratesCredentials(t *testing.T) {
 
 	ticket, err := service.Create(context.Background(), TicketCreateInput{
 		PitchID:    "pitch-001",
+		PitchCode:  "E152",
 		ValidFrom:  validFrom,
 		ValidUntil: validFrom.Add(24 * time.Hour),
 	})
@@ -87,11 +89,39 @@ func TestCreateTicketGeneratesCredentials(t *testing.T) {
 	if ticket.Username == "" {
 		t.Fatal("expected generated username")
 	}
+	if !regexp.MustCompile(`^XXX152-[A-Za-z]{4}$`).MatchString(ticket.Username) {
+		t.Fatalf("unexpected generated username: %q", ticket.Username)
+	}
 	if ticket.CleartextPassword == "" {
 		t.Fatal("expected generated password")
 	}
-	if len(ticket.CleartextPassword) != 14 {
-		t.Fatalf("expected 14-char password, got %d", len(ticket.CleartextPassword))
+	if len(ticket.CleartextPassword) != 7 {
+		t.Fatalf("expected 7-char password, got %d", len(ticket.CleartextPassword))
+	}
+}
+
+func TestCreateTicketRegeneratesUsernameOnDuplicate(t *testing.T) {
+	repository := &fakeRepository{duplicateAttempts: 1}
+	service := NewService(repository)
+	validFrom := time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC)
+
+	ticket, err := service.Create(context.Background(), TicketCreateInput{
+		PitchID:    "pitch-001",
+		PitchCode:  "E7",
+		ValidFrom:  validFrom,
+		ValidUntil: validFrom.Add(24 * time.Hour),
+	})
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+	if repository.createCalls != 2 {
+		t.Fatalf("createCalls = %d, want 2", repository.createCalls)
+	}
+	if !regexp.MustCompile(`^XXX7-[A-Za-z]{4}$`).MatchString(ticket.Username) {
+		t.Fatalf("unexpected generated username: %q", ticket.Username)
+	}
+	if repository.createdUsernames[0] == repository.createdUsernames[1] {
+		t.Fatalf("expected regenerated username, got %q twice", repository.createdUsernames[0])
 	}
 }
 
@@ -288,38 +318,44 @@ func TestRevokeTicketContinuesWhenRadiusRevokeFails(t *testing.T) {
 }
 
 func TestGenerateUsername(t *testing.T) {
-	username, err := GenerateUsername(time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC))
+	username, err := GenerateUsername("E152")
 	if err != nil {
 		t.Fatalf("generate username: %v", err)
 	}
-	if len(username) != len("cp-20260510-AB12") {
-		t.Fatalf("unexpected username length: %q", username)
-	}
-	if username[:12] != "cp-20260510-" {
-		t.Fatalf("unexpected username prefix: %q", username)
+	if !regexp.MustCompile(`^XXX152-[A-Za-z]{4}$`).MatchString(username) {
+		t.Fatalf("unexpected username: %q", username)
 	}
 }
 
 func TestGeneratePassword(t *testing.T) {
-	password, err := GeneratePassword(14)
+	password, err := GeneratePassword(7)
 	if err != nil {
 		t.Fatalf("generate password: %v", err)
 	}
-	if len(password) != 14 {
-		t.Fatalf("expected 14 chars, got %d", len(password))
+	if len(password) != 7 {
+		t.Fatalf("expected 7 chars, got %d", len(password))
 	}
 }
 
 type fakeRepository struct {
-	created        TicketCreateInput
-	revoked        TicketRevokeInput
-	markExpiredAt  time.Time
-	radiusSyncedID string
-	tickets        []Ticket
-	filters        TicketListFilters
+	created           TicketCreateInput
+	revoked           TicketRevokeInput
+	markExpiredAt     time.Time
+	radiusSyncedID    string
+	tickets           []Ticket
+	filters           TicketListFilters
+	createCalls       int
+	duplicateAttempts int
+	createdUsernames  []string
 }
 
 func (r *fakeRepository) Create(ctx context.Context, input TicketCreateInput) (Ticket, error) {
+	r.createCalls++
+	r.createdUsernames = append(r.createdUsernames, input.Username)
+	if r.duplicateAttempts > 0 {
+		r.duplicateAttempts--
+		return Ticket{}, ErrDuplicateUsername
+	}
 	r.created = input
 	return Ticket{
 		ID:                "ticket-id",
