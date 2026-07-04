@@ -210,7 +210,7 @@ func GenerateUsername(pitchCode string) (string, error) {
 		return "", err
 	}
 
-	return "XXX" + number + "-" + suffix, nil
+	return number + "-" + suffix, nil
 }
 
 func GeneratePassword(length int) (string, error) {

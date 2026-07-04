@@ -89,7 +89,7 @@ func TestCreateTicketGeneratesCredentials(t *testing.T) {
 	if ticket.Username == "" {
 		t.Fatal("expected generated username")
 	}
-	if !regexp.MustCompile(`^XXX152-[A-Za-z]{4}$`).MatchString(ticket.Username) {
+	if !regexp.MustCompile(`^152-[A-Za-z]{4}$`).MatchString(ticket.Username) {
 		t.Fatalf("unexpected generated username: %q", ticket.Username)
 	}
 	if ticket.CleartextPassword == "" {
@@ -117,7 +117,7 @@ func TestCreateTicketRegeneratesUsernameOnDuplicate(t *testing.T) {
 	if repository.createCalls != 2 {
 		t.Fatalf("createCalls = %d, want 2", repository.createCalls)
 	}
-	if !regexp.MustCompile(`^XXX7-[A-Za-z]{4}$`).MatchString(ticket.Username) {
+	if !regexp.MustCompile(`^7-[A-Za-z]{4}$`).MatchString(ticket.Username) {
 		t.Fatalf("unexpected generated username: %q", ticket.Username)
 	}
 	if repository.createdUsernames[0] == repository.createdUsernames[1] {
@@ -322,7 +322,7 @@ func TestGenerateUsername(t *testing.T) {
 	if err != nil {
 		t.Fatalf("generate username: %v", err)
 	}
-	if !regexp.MustCompile(`^XXX152-[A-Za-z]{4}$`).MatchString(username) {
+	if !regexp.MustCompile(`^152-[A-Za-z]{4}$`).MatchString(username) {
 		t.Fatalf("unexpected username: %q", username)
 	}
 }
