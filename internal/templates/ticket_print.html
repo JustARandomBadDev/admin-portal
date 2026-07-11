@@ -71,6 +71,20 @@
       line-height: 1.4;
     }
 
+    .ticket-portal {
+      margin-top: 5mm;
+      padding-top: 4mm;
+      border-top: 1px solid #000;
+      font-size: 14px;
+      line-height: 1.35;
+      word-break: break-word;
+    }
+
+    .ticket-portal-url {
+      display: block;
+      font-weight: 700;
+    }
+
     @media print {
       .print-note {
         display: none;
@@ -109,6 +123,10 @@
         <span>{{ .CreatedAt }}</span>
       </p>
       <p class="ticket-small">Conservez ce ticket pendant la durée de votre séjour.</p>
+      <p class="ticket-portal">
+        <span class="ticket-label">Portail WiFi :</span>
+        <span class="ticket-portal-url">http://portal.camping.home.arpa</span>
+      </p>
     </article>
     {{ end }}
   </main>
