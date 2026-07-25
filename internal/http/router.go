@@ -10,6 +10,7 @@ import (
 	"github.com/JustARandomBadDev/captive-portal-admin/internal/config"
 	"github.com/JustARandomBadDev/captive-portal-admin/internal/database"
 	"github.com/JustARandomBadDev/captive-portal-admin/internal/pitches"
+	"github.com/JustARandomBadDev/captive-portal-admin/internal/static"
 	"github.com/JustARandomBadDev/captive-portal-admin/internal/tickets"
 )
 
@@ -78,6 +79,7 @@ func NewRouter(deps Dependencies) http.Handler {
 	mux.Handle("GET /tickets/new", router.RequireAdmin(http.HandlerFunc(router.ticketNew)))
 	mux.Handle("GET /tickets/print", router.RequireAdmin(http.HandlerFunc(router.ticketPrintSelect)))
 	mux.Handle("GET /tickets/print/view", router.RequireAdmin(http.HandlerFunc(router.ticketPrintView)))
+	mux.Handle("GET /tickets/print/receipt", router.RequireAdmin(http.HandlerFunc(router.ticketReceiptView)))
 	mux.Handle("POST /tickets", router.RequireAdmin(http.HandlerFunc(router.ticketCreate)))
 	mux.Handle("POST /tickets/{id}/revoke", router.RequireAdmin(http.HandlerFunc(router.ticketRevoke)))
 	mux.Handle("GET /pitches", router.RequireAdmin(http.HandlerFunc(router.pitchList)))
@@ -87,6 +89,7 @@ func NewRouter(deps Dependencies) http.Handler {
 	mux.Handle("POST /pitches/{id}/enable", router.RequireAdmin(http.HandlerFunc(router.pitchEnable)))
 	mux.Handle("POST /api/admin/auth/logout", router.RequireAdmin(http.HandlerFunc(router.logoutSubmit)))
 	mux.Handle("GET /api/admin/auth/me", router.RequireAdmin(http.HandlerFunc(router.authMe)))
+	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(static.FS))))
 
 	return mux
 }

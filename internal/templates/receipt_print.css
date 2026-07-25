@@ -1,0 +1,128 @@
+@page {
+  size: 80mm auto;
+  margin: 0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: #fff;
+  color: #000;
+}
+
+body {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 11pt;
+  line-height: 1.35;
+}
+
+.receipt-page {
+  width: 80mm;
+  margin: 0 auto;
+  padding: 0;
+}
+
+.receipt-ticket {
+  width: 72mm;
+  margin: 0 auto;
+  padding: 4mm 0;
+  break-inside: avoid;
+  page-break-inside: avoid;
+  break-after: page;
+  page-break-after: always;
+}
+
+.receipt-ticket:last-child {
+  break-after: auto;
+  page-break-after: auto;
+}
+
+.receipt-header,
+.receipt-section,
+.receipt-footer {
+  text-align: center;
+}
+
+.receipt-logo {
+  display: block;
+  width: auto;
+  max-width: 28mm;
+  max-height: 28mm;
+  margin: 0 auto 3mm;
+}
+
+.receipt-camping-name {
+  font-size: 15pt;
+  font-weight: 800;
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: 0;
+  font-size: 13pt;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.receipt-separator {
+  width: 100%;
+  margin: 4mm 0;
+  border-top: 1px dashed #000;
+}
+
+.receipt-label {
+  margin-bottom: 2mm;
+  font-size: 10pt;
+  font-weight: 400;
+}
+
+.receipt-value {
+  overflow-wrap: anywhere;
+  font-size: 18pt;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.receipt-password {
+  font-size: 21pt;
+  letter-spacing: 0.03em;
+}
+
+.receipt-small-value,
+.receipt-url {
+  overflow-wrap: anywhere;
+  font-size: 13pt;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.receipt-url {
+  font-size: 12pt;
+}
+
+.receipt-footer {
+  font-size: 11pt;
+  font-weight: 700;
+}
+
+.receipt-footer p {
+  margin: 0 0 1.5mm;
+}
+
+.receipt-message {
+  width: 72mm;
+  margin: 4mm auto;
+}
+
+@media print {
+  html,
+  body {
+    width: 80mm;
+  }
+}

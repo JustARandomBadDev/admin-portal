@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>{{ .Title }}</title>
+  <style>
+{{ template "receipt_print.css" . }}
+  </style>
+</head>
+<body>
+  <script>
+    window.addEventListener("load", () => window.print());
+  </script>
+  {{ if .Tickets }}
+  <main class="receipt-page" aria-label="Tickets WiFi format ticket thermique 80 mm">
+    {{ range .Tickets }}
+    <article class="receipt-ticket">
+      <header class="receipt-header">
+        <img class="receipt-logo" src="/static/logo-camping.png" alt="Camping de Loperhet">
+        <div class="receipt-camping-name">Camping de Loperhet</div>
+      </header>
+
+      <div class="receipt-separator"></div>
+      <h1>Connexion WiFi</h1>
+      <div class="receipt-separator"></div>
+
+      <section class="receipt-section">
+        <div class="receipt-label">Identifiant</div>
+        <div class="receipt-value">{{ .Username }}</div>
+      </section>
+
+      <div class="receipt-separator"></div>
+
+      <section class="receipt-section">
+        <div class="receipt-label">Mot de passe</div>
+        <div class="receipt-value receipt-password">{{ .Password }}</div>
+      </section>
+
+      {{ if .PitchCode }}
+      <div class="receipt-separator"></div>
+      <section class="receipt-section">
+        <div class="receipt-label">Emplacement</div>
+        <div class="receipt-small-value">{{ .PitchCode }}</div>
+      </section>
+      {{ end }}
+
+      {{ if .ValidUntil }}
+      <div class="receipt-separator"></div>
+      <section class="receipt-section">
+        <div class="receipt-label">Valable jusqu'au</div>
+        <div class="receipt-small-value">{{ .ValidUntil }}</div>
+      </section>
+      {{ end }}
+
+      <div class="receipt-separator"></div>
+      <section class="receipt-section">
+        <div class="receipt-label">Connexion</div>
+        <div class="receipt-url">portal.camping.home.arpa</div>
+      </section>
+
+      <div class="receipt-separator"></div>
+      <footer class="receipt-footer">
+        <p>Conservez ce ticket.</p>
+        <p>Bon séjour !</p>
+      </footer>
+    </article>
+    {{ end }}
+  </main>
+  {{ else }}
+  <p class="receipt-message">{{ .Message }}</p>
+  {{ end }}
+</body>
+</html>

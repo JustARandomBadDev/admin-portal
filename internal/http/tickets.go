@@ -132,6 +132,14 @@ func (r *Router) ticketPrintSelect(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) ticketPrintView(w http.ResponseWriter, req *http.Request) {
+	r.renderTicketPrint(w, req, "ticket_print.html", "Tickets WiFi à imprimer")
+}
+
+func (r *Router) ticketReceiptView(w http.ResponseWriter, req *http.Request) {
+	r.renderTicketPrint(w, req, "ticket_receipt.html", "Tickets WiFi - ticket 80 mm")
+}
+
+func (r *Router) renderTicketPrint(w http.ResponseWriter, req *http.Request, templateName string, title string) {
 	ids := req.URL.Query()["id"]
 	if len(ids) == 0 {
 		http.Redirect(w, req, "/tickets/print?error=no_selection", http.StatusSeeOther)
@@ -146,14 +154,14 @@ func (r *Router) ticketPrintView(w http.ResponseWriter, req *http.Request) {
 
 	selected := selectTicketRowsByID(rows, ids)
 	data := ticketPrintPageData{
-		Title:   "Tickets WiFi à imprimer",
+		Title:   title,
 		Tickets: selected,
 	}
 	if len(selected) == 0 {
 		data.Message = "Aucun ticket sélectionné n'est imprimable."
 	}
 
-	r.render(w, "ticket_print.html", data)
+	r.render(w, templateName, data)
 }
 
 func (r *Router) ticketCreate(w http.ResponseWriter, req *http.Request) {

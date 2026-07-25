@@ -31,7 +31,7 @@ type App struct {
 }
 
 func New(ctx context.Context, cfg config.Config) (*App, error) {
-	views, err := template.ParseFS(templates.FS, "*.html")
+	views, err := template.ParseFS(templates.FS, "*.html", "*.css")
 	if err != nil {
 		return nil, err
 	}
