@@ -63,6 +63,21 @@ RETURNING
 	return ticket, nil
 }
 
+func (r *PostgresRepository) DeleteByID(ctx context.Context, id string) error {
+	tag, err := r.pool.Exec(ctx, `
+DELETE FROM wifi_tickets
+WHERE id = $1
+`, id)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrTicketNotFound
+	}
+
+	return nil
+}
+
 func (r *PostgresRepository) GetByID(ctx context.Context, id string) (Ticket, error) {
 	row := r.pool.QueryRow(ctx, ticketSelectSQL()+` WHERE id = $1`, id)
 

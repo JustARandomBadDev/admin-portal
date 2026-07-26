@@ -2,6 +2,7 @@ package radius
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/JustARandomBadDev/captive-portal-admin/internal/database"
@@ -9,7 +10,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-const zywallGuestClass = "WIFI_GUEST"
+const (
+	radiusAttributePassword        = "Cleartext-Password"
+	radiusAttributeExpiration      = "Expiration"
+	radiusAttributeSimultaneousUse = "Simultaneous-Use"
+	simultaneousUseLimit           = "4"
+)
 
 type PostgresSyncer struct {
 	pool *pgxpool.Pool
@@ -41,59 +47,51 @@ SET cleartext_password = EXCLUDED.cleartext_password,
     expires_at = EXCLUDED.expires_at,
     updated_at = now()
 `, ticket.ID, ticket.Username, ticket.CleartextPassword, ticket.ValidUntil); err != nil {
-		return err
+		return fmt.Errorf("upsert radius user %q: %w", ticket.Username, err)
 	}
 
-	if _, err := tx.Exec(ctx, `
+	if err := s.syncRadcheckAccessPolicy(ctx, tx, ticket); err != nil {
+		return fmt.Errorf("sync radcheck access policy for ticket %q: %w", ticket.Username, err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit radius ticket provisioning for %q: %w", ticket.Username, err)
+	}
+
+	return nil
+}
+
+func (s *PostgresSyncer) syncRadcheckAccessPolicy(ctx context.Context, exec radiusExecutor, ticket Ticket) error {
+	if _, err := exec.Exec(ctx, `
 DELETE FROM radcheck
 WHERE username = $1
-  AND attribute IN ('Cleartext-Password', 'Expiration')
+  AND attribute IN ('Cleartext-Password', 'Expiration', 'Simultaneous-Use')
 `, ticket.Username); err != nil {
-		return err
+		return fmt.Errorf("delete managed radcheck attributes: %w", err)
 	}
 
-	if _, err := tx.Exec(ctx, `
+	if _, err := exec.Exec(ctx, `
 INSERT INTO radcheck (username, attribute, op, value)
 VALUES ($1, 'Cleartext-Password', ':=', $2)
 `, ticket.Username, ticket.CleartextPassword); err != nil {
-		return err
+		return fmt.Errorf("insert Cleartext-Password check item: %w", err)
 	}
 
-	if _, err := tx.Exec(ctx, `
+	if _, err := exec.Exec(ctx, `
 INSERT INTO radcheck (username, attribute, op, value)
 VALUES ($1, 'Expiration', ':=', $2)
-`, ticket.Username, formatExpiration(ticket.ValidUntil)); err != nil {
-		return err
+`, ticket.Username, FormatRADIUSExpiration(ticket.ValidUntil)); err != nil {
+		return fmt.Errorf("insert Expiration check item: %w", err)
 	}
 
-	if err := s.ensureZywallGuestClassReply(ctx, tx, ticket.Username); err != nil {
-		return err
+	if _, err := exec.Exec(ctx, `
+INSERT INTO radcheck (username, attribute, op, value)
+VALUES ($1, 'Simultaneous-Use', ':=', $2)
+`, ticket.Username, simultaneousUseLimit); err != nil {
+		return fmt.Errorf("insert Simultaneous-Use check item: %w", err)
 	}
 
-	return tx.Commit(ctx)
-}
-
-func (s *PostgresSyncer) ensureZywallGuestClassReply(ctx context.Context, exec radiusExecutor, username string) error {
-	_, err := exec.Exec(ctx, `
-WITH normalized AS (
-    UPDATE radreply
-    SET op = ':='
-    WHERE username = $1::varchar(64)
-      AND attribute = 'Class'
-      AND value = $2::varchar(253)
-      AND op <> ':='
-)
-INSERT INTO radreply (username, attribute, op, value)
-SELECT $1::varchar(64), 'Class', ':='::char(2), $2::varchar(253)
-WHERE NOT EXISTS (
-    SELECT 1
-    FROM radreply
-    WHERE username = $1::varchar(64)
-      AND attribute = 'Class'
-      AND value = $2::varchar(253)
-)
-`, username, zywallGuestClass)
-	return err
+	return nil
 }
 
 func (s *PostgresSyncer) RevokeTicket(ctx context.Context, ticket Ticket) error {
@@ -147,6 +145,10 @@ WHERE username = $1
 	return tx.Commit(ctx)
 }
 
-func formatExpiration(value time.Time) string {
+// FormatRADIUSExpiration formats a ticket validity instant for FreeRADIUS 3.x.
+// The admin UI computes validity in the camping's local time (Europe/Paris);
+// the stored time.Time represents that exact instant. UTC output avoids DST and
+// container timezone ambiguity while preserving the same instant.
+func FormatRADIUSExpiration(value time.Time) string {
 	return value.UTC().Format("02 Jan 2006 15:04:05 UTC")
 }

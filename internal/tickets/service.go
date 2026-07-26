@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"log/slog"
 	"regexp"
 	"strings"
@@ -80,10 +81,12 @@ func (s *Service) Create(ctx context.Context, input TicketCreateInput) (Ticket, 
 		ticket, err := s.repository.Create(ctx, input)
 		if err == nil {
 			if err := s.radiusSync.ProvisionTicket(ctx, radiusTicket(ticket)); err != nil {
-				slog.WarnContext(ctx, "radius provision failed after ticket creation", "ticket_id", ticket.ID, "username", ticket.Username, "error", err)
-			} else {
-				s.markRadiusSynced(ctx, ticket)
+				if deleteErr := s.repository.DeleteByID(ctx, ticket.ID); deleteErr != nil {
+					return Ticket{}, fmt.Errorf("provision radius for ticket %q failed and admin ticket cleanup failed: %w", ticket.Username, deleteErr)
+				}
+				return Ticket{}, fmt.Errorf("provision radius for ticket %q: %w", ticket.Username, err)
 			}
+			s.markRadiusSynced(ctx, ticket)
 			return ticket, nil
 		}
 		if !generateUsername || !errors.Is(err, ErrDuplicateUsername) {

@@ -3,15 +3,10 @@
 Panel admin local en Go pour gérer les tickets WiFi temporaires d'un camping.
 
 Le projet vise une interface serveur-side simple, accessible depuis le réseau
-admin local, avec PostgreSQL comme base cible. Les futures étapes couvriront les
-emplacements, la synchronisation FreeRADIUS, l'authentification admin et
-l'impression ou l'affichage des tickets.
-
-Le projet voisin `captive-portal` sépare déjà les données applicatives du
-portail, les tables techniques FreeRADIUS et les logs légaux. Ce panel admin
-gardera la même séparation : données métier admin d'un côté, synchronisation
-vers la base RADIUS de l'autre, sans modifier directement les logs légaux du
-portail client.
+admin local, avec PostgreSQL comme base cible. Le panel gère les emplacements,
+la synchronisation FreeRADIUS, l'authentification admin et l'impression des
+tickets. Les données métier admin restent séparées des tables techniques
+FreeRADIUS.
 
 ## Lancement
 
@@ -135,6 +130,23 @@ DATABASE_URL="postgres://admin_user:admin_password@127.0.0.1:5432/admin?sslmode=
 La commande demande un identifiant et un mot de passe. Le mot de passe est hashé
 avec bcrypt avant insertion dans `admin_users`; il n'est jamais stocké en clair.
 
+Resynchroniser les tickets actifs vers FreeRADIUS, par exemple après l'ajout
+ou la correction d'une politique RADIUS :
+
+```sh
+DATABASE_URL="postgres://admin_user:admin_password@127.0.0.1:5432/admin?sslmode=disable" \
+RADIUS_DATABASE_URL="postgres://radius_user:radius_dev_password@127.0.0.1:5432/radius?sslmode=disable" \
+  go run ./cmd/adminctl sync-radius-tickets
+```
+
+Nettoyer les anciennes réponses RADIUS `Class` devenues inutiles après migration
+vers OPNsense :
+
+```sh
+RADIUS_DATABASE_URL="postgres://radius_user:radius_dev_password@127.0.0.1:5432/radius?sslmode=disable" \
+  go run ./cmd/adminctl cleanup-legacy-radius-class
+```
+
 Le panel utilise une session serveur stockée dans `admin_sessions`. Le navigateur
 reçoit seulement un cookie opaque `admin_session` :
 
@@ -226,8 +238,15 @@ Création d'un ticket :
 - crée ou réactive l'entrée `radius_users` ;
 - remplace les check items `radcheck` du ticket ;
 - ajoute `Cleartext-Password := <mot de passe>` ;
+- ajoute `Simultaneous-Use := 4` pour limiter un ticket à quatre connexions
+  simultanées ;
 - ajoute `Expiration := <date de fin>` pour que FreeRADIUS refuse le ticket
   après `valid_until`.
+
+La valeur `Expiration` est générée en UTC au format texte attendu par
+FreeRADIUS 3.x. L'interface admin calcule la validité selon l'heure locale du
+camping, puis la synchronisation RADIUS convertit le même instant en UTC afin
+d'éviter les ambiguïtés de fuseau horaire et de changement d'heure.
 
 Révocation ou expiration :
 
@@ -235,10 +254,24 @@ Révocation ou expiration :
 - supprime les réponses/groupes éventuels du username ;
 - désactive `radius_users`.
 
-Une erreur de synchronisation ne rollback pas la donnée métier admin ; elle est
-journalisée pour permettre une reprise ou une sync asynchrone plus tard. Le
-champ `wifi_tickets.radius_synced_at` est mis à jour uniquement après une sync
-réussie. Les logs légaux restent gérés par `captive-portal`.
+Lors de la création, si le provisioning FreeRADIUS échoue, le ticket admin tout
+juste créé est supprimé et l'erreur est remontée. Les opérations RADIUS sont
+exécutées dans une transaction sur la base `radius`. Le champ
+`wifi_tickets.radius_synced_at` est mis à jour uniquement après une sync
+réussie.
+
+L'architecture actuelle est `OPNsense Captive Portal -> FreeRADIUS ->
+PostgreSQL`. Le panel admin écrit les comptes et politiques RADIUS dans
+PostgreSQL; OPNsense authentifie les clients via FreeRADIUS et envoie
+l'Accounting RADIUS.
+
+La limite `Simultaneous-Use` est appliquée par FreeRADIUS à partir de cet
+Accounting. OPNsense doit donc envoyer les requêtes d'accounting, notamment avec
+l'option `Always send accounting requests` activée. Le port d'accounting
+standard est `1813`, les sessions actives sont stockées dans `radacct`, et des
+sessions fantômes sans `acctstoptime` peuvent empêcher une nouvelle connexion.
+Configurer un `Interim-Update` côté OPNsense si disponible facilite la détection
+des sessions obsolètes.
 
 ## Migrations PostgreSQL
 
@@ -254,6 +287,6 @@ La migration d'authentification ajoute :
 - `admin_sessions` : sessions serveur des administrateurs.
 
 FreeRADIUS conserve ses propres tables techniques dans la base RADIUS
-(`radcheck`, `radreply`, `radacct`, `radpostauth`, etc.). Les logs légaux de
-connexion restent gérés par le projet voisin `captive-portal` et sa base
-applicative. Le panel admin ne crée pas et ne purge pas ces logs.
+(`radcheck`, `radreply`, `radacct`, `radpostauth`, etc.). Avec OPNsense Captive
+Portal, `radacct` est la source primaire des sessions RADIUS et des connexions
+observées par FreeRADIUS. Le panel admin ne crée pas et ne purge pas ces logs.

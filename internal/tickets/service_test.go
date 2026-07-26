@@ -150,7 +150,7 @@ func TestCreateTicketCallsRadiusProvision(t *testing.T) {
 	}
 }
 
-func TestCreateTicketContinuesWhenRadiusProvisionFails(t *testing.T) {
+func TestCreateTicketDeletesAdminTicketWhenRadiusProvisionFails(t *testing.T) {
 	syncer := &fakeRadiusSyncer{provisionErr: errors.New("radius unavailable")}
 	repository := &fakeRepository{}
 	service := NewService(repository, syncer)
@@ -163,14 +163,17 @@ func TestCreateTicketContinuesWhenRadiusProvisionFails(t *testing.T) {
 		ValidFrom:         validFrom,
 		ValidUntil:        validFrom.Add(24 * time.Hour),
 	})
-	if err != nil {
-		t.Fatalf("expected admin ticket creation to continue, got %v", err)
+	if err == nil {
+		t.Fatal("expected radius provision error")
 	}
-	if ticket.ID == "" {
-		t.Fatal("expected created ticket")
+	if ticket.ID != "" {
+		t.Fatalf("expected no returned ticket, got %q", ticket.ID)
 	}
-	if syncer.provisioned.ID != ticket.ID {
-		t.Fatalf("expected provision attempt for %q, got %q", ticket.ID, syncer.provisioned.ID)
+	if syncer.provisioned.ID != "ticket-id" {
+		t.Fatalf("expected provision attempt for ticket-id, got %q", syncer.provisioned.ID)
+	}
+	if repository.deletedID != "ticket-id" {
+		t.Fatalf("expected admin ticket cleanup for ticket-id, got %q", repository.deletedID)
 	}
 	if repository.radiusSyncedID != "" {
 		t.Fatalf("expected no radius sync mark on failure, got %q", repository.radiusSyncedID)
@@ -347,6 +350,7 @@ type fakeRepository struct {
 	createCalls       int
 	duplicateAttempts int
 	createdUsernames  []string
+	deletedID         string
 }
 
 func (r *fakeRepository) Create(ctx context.Context, input TicketCreateInput) (Ticket, error) {
@@ -368,6 +372,11 @@ func (r *fakeRepository) Create(ctx context.Context, input TicketCreateInput) (T
 		CreatedBy:         input.CreatedBy,
 		CreatedAt:         input.ValidFrom,
 	}, nil
+}
+
+func (r *fakeRepository) DeleteByID(ctx context.Context, id string) error {
+	r.deletedID = id
+	return nil
 }
 
 func (r *fakeRepository) GetByID(ctx context.Context, id string) (Ticket, error) {

@@ -8,6 +8,7 @@ import (
 // Repository defines ticket persistence without binding services to PostgreSQL.
 type Repository interface {
 	Create(ctx context.Context, input TicketCreateInput) (Ticket, error)
+	DeleteByID(ctx context.Context, id string) error
 	GetByID(ctx context.Context, id string) (Ticket, error)
 	ListActive(ctx context.Context, now time.Time) ([]Ticket, error)
 	ListAll(ctx context.Context) ([]Ticket, error)
