@@ -116,7 +116,7 @@ func (r *Router) dashboard(w http.ResponseWriter, req *http.Request) {
 
 	r.render(w, "dashboard.html", dashboardPageData{
 		viewData:      r.viewData(req),
-		Title:         "Camping WiFi Admin",
+		Title:         "WiFi Admin",
 		ActiveNav:     "dashboard",
 		Heading:       "Dashboard",
 		Description:   "Bienvenue sur le portail d'administration du Wi-Fi.",

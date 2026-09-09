@@ -146,7 +146,6 @@ WHERE username = $1
 }
 
 // FormatRADIUSExpiration formats a ticket validity instant for FreeRADIUS 3.x.
-// The admin UI computes validity in the camping's local time (Europe/Paris);
 // the stored time.Time represents that exact instant. UTC output avoids DST and
 // container timezone ambiguity while preserving the same instant.
 func FormatRADIUSExpiration(value time.Time) string {

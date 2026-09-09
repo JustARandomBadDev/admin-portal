@@ -2,7 +2,7 @@ package pitches
 
 import "time"
 
-// Pitch is an admin-side camping pitch that can be linked to WiFi tickets.
+// Pitch is an admin-side pitch that can be linked to WiFi tickets.
 type Pitch struct {
 	ID        string
 	Code      string

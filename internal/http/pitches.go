@@ -40,7 +40,7 @@ func (r *Router) pitchList(w http.ResponseWriter, req *http.Request) {
 		Title:       "Emplacements",
 		ActiveNav:   "pitches",
 		Heading:     "Emplacements",
-		Description: "Gestion des emplacements du camping.",
+		Description: "Gestion des emplacements.",
 		Pitches:     items,
 		Error:       req.URL.Query().Get("error"),
 	})
