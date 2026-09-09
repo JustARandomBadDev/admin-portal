@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/signal"
 	"strings"
 	"syscall"
 	"time"
@@ -27,6 +28,8 @@ func main() {
 
 	var err error
 	switch os.Args[1] {
+	case "migrate":
+		err = migrate()
 	case "create-admin":
 		err = createAdmin()
 	case "sync-radius-tickets":
@@ -45,7 +48,23 @@ func main() {
 }
 
 func printUsage() {
-	fmt.Fprintln(os.Stderr, "Usage: go run ./cmd/adminctl <create-admin|sync-radius-tickets|cleanup-legacy-radius-class>")
+	fmt.Fprintln(os.Stderr, "Usage: adminctl <create-admin|migrate|sync-radius-tickets|cleanup-legacy-radius-class>")
+}
+
+func migrate() error {
+	cfg := config.Load()
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+	db, err := database.Connect(ctx, database.Config{URL: cfg.DatabaseURL})
+	if err != nil {
+		if errors.Is(err, database.ErrMissingDatabaseURL) {
+			return err
+		}
+		// Connection parsing errors can include the supplied connection string.
+		return errors.New("cannot connect admin database for migrations: check DATABASE_URL and PostgreSQL availability")
+	}
+	defer db.Close()
+	return db.Migrate(ctx, os.Stdout)
 }
 
 func createAdmin() error {

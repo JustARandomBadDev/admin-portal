@@ -180,8 +180,8 @@ The application requires two separate PostgreSQL connections:
 The migrations in this repository only target the admin database.
 
 ```bash
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/001_admin_schema.sql
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/002_admin_auth.sql
+go run ./cmd/adminctl migrate
+# Or: make migrate
 ```
 
 They create:
@@ -192,6 +192,14 @@ They create:
 - `wifi_tickets`
 
 The application does not apply migrations automatically at startup.
+Run `adminctl migrate` explicitly with `DATABASE_URL` before starting the HTTP server.
+The SQL files in `migrations/` are embedded in the binary using `go:embed`.
+The existing `schema_migrations` table (TEXT version, name, applied_at) is preserved:
+versions `001` and `002` already recorded by the previous runner are skipped.
+Each migration and its history entry commit in the same PostgreSQL transaction.
+A connection-scoped advisory lock (`hashtext('admin-portal-migrations')`) serializes runners.
+Future migrations use the next numeric prefix, such as `003_description.sql`;
+do not edit previously applied SQL. No migration framework or external SQL files are required.
 The FreeRADIUS schema and the `radius_users` table are managed by [`camping-infra`](https://github.com/JustARandomBadDev/camping-infra).
 
 ## Configuration
@@ -276,13 +284,16 @@ docker build -t admin-portal .
 
 The Dockerfile uses a multi-stage build and runs the final application as a non-root user.
 Templates, styles, and static assets are embedded into the Go binary.
-Admin migrations are also copied to `/app/migrations/admin`.
+The same runtime image contains `/app/admin-panel` and `/app/adminctl`, with embedded
+migrations and no `psql`. The default command remains `/app/admin-panel`.
+For a one-shot Compose migration service using the same image version, set:
 
-A separate `migrations` target adds `postgresql-client` for infrastructure-managed migration jobs:
-
-```bash
-docker build --target migrations -t admin-portal:migrations .
+```yaml
+command: ["/app/adminctl", "migrate"]
 ```
+
+Pass `DATABASE_URL` to that service and wait for successful completion before starting
+the HTTP service. No SQL volume or separate Docker migration target is needed.
 
 On every push to `main`, GitHub Actions publishes the runtime image to GHCR with two tags:
 
