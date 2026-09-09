@@ -1,7 +1,7 @@
-# captive-portal-admin
+# admin-portal
 
-`captive-portal-admin` is a small Go administration panel for managing temporary Wi-Fi access in a campsite network.
-It provides a French server-rendered interface for managing pitches, creating printable Wi-Fi tickets, and synchronizing their credentials with the FreeRADIUS database used by an OPNsense captive portal.
+`admin-portal` is a small Go administration panel for managing temporary visitor Wi-Fi access in a hospitality or accommodation network.
+It provides a French server-rendered interface for managing locations, creating printable Wi-Fi tickets, and synchronizing their credentials with the FreeRADIUS database used by an OPNsense captive portal.
 
 The application is designed to run as an internal service alongside [`camping-infra`](https://github.com/JustARandomBadDev/camping-infra).
 
@@ -9,7 +9,7 @@ The application is designed to run as an internal service alongside [`camping-in
 
 - An internal administration panel for temporary Wi-Fi access
 - A server-rendered Go application with embedded HTML, CSS, JavaScript, and static assets
-- A business layer for campsite pitches and Wi-Fi tickets
+- A business layer for locations and Wi-Fi tickets
 - A synchronization boundary between the administration database and FreeRADIUS
 - A small containerized service intended to be deployed behind the administration network
 
@@ -44,16 +44,16 @@ The application is designed to run as an internal service alongside [`camping-in
 - Tickets revoked today
 - Five most recently created tickets
 
-### Pitches
+### Locations
 
-- Create campsite pitches with a unique code and optional label
-- List all pitches
-- Enable or disable pitches without deleting them
-- Restrict ticket creation to active pitches
+- Create locations with a unique code and optional label
+- List all locations
+- Enable or disable locations without deleting them
+- Restrict ticket creation to active locations
 
 ### Wi-Fi Tickets
 
-- Create temporary access for a selected pitch
+- Create temporary access for a selected location
 - Preset durations from 6 hours to 7 days
 - Custom durations expressed in days
 - Automatic username and password generation
@@ -64,8 +64,8 @@ The application is designed to run as an internal service alongside [`camping-in
 - Select and print multiple active tickets
 - A4 and 80 mm thermal receipt layouts
 
-Generated usernames use the numeric part of the pitch code followed by four random letters.
-For example, a pitch named `A12` produces an identifier such as `12-AbCd`.
+Generated usernames use the numeric part of the location code followed by four random letters.
+For example, a location named `A12` produces an identifier such as `12-AbCd`.
 
 Passwords contain seven random characters and omit visually ambiguous characters.
 
@@ -92,7 +92,7 @@ flowchart TD
 ### Admin Database
 
 - Owns administrator accounts and sessions
-- Owns campsite pitches
+- Owns locations
 - Owns the business lifecycle of Wi-Fi tickets
 - Remains separate from the technical FreeRADIUS tables
 
@@ -271,7 +271,7 @@ go run ./cmd/adminctl cleanup-legacy-radius-class
 Build the runtime image:
 
 ```bash
-docker build -t captive-portal-admin .
+docker build -t admin-portal .
 ```
 
 The Dockerfile uses a multi-stage build and runs the final application as a non-root user.
@@ -281,14 +281,14 @@ Admin migrations are also copied to `/app/migrations/admin`.
 A separate `migrations` target adds `postgresql-client` for infrastructure-managed migration jobs:
 
 ```bash
-docker build --target migrations -t captive-portal-admin:migrations .
+docker build --target migrations -t admin-portal:migrations .
 ```
 
 On every push to `main`, GitHub Actions publishes the runtime image to GHCR with two tags:
 
 ```text
-ghcr.io/justarandombaddev/captive-portal-admin:latest
-ghcr.io/justarandombaddev/captive-portal-admin:<commit-sha>
+ghcr.io/justarandombaddev/admin-portal:latest
+ghcr.io/justarandombaddev/admin-portal:<commit-sha>
 ```
 
 The complete Compose deployment, database initialization, and service networking are managed in [`camping-infra`](https://github.com/JustARandomBadDev/camping-infra).

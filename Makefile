@@ -2,7 +2,7 @@
 
 GOCACHE ?= /tmp/go-build
 GOMODCACHE ?= /tmp/go-mod
-IMAGE_NAME ?= camping/captive-portal-admin
+IMAGE_NAME ?= ghcr.io/justarandombaddev/admin-portal
 IMAGE_TAG ?= dev
 
 help:

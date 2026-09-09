@@ -29,5 +29,5 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/justarandombaddev/captive-portal-admin:latest
-            ghcr.io/justarandombaddev/captive-portal-admin:${{ github.sha }}
+            ghcr.io/justarandombaddev/admin-portal:latest
+            ghcr.io/justarandombaddev/admin-portal:${{ github.sha }}
